@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 
 
-def run_lidar(name, time_set, image_path, label_path, class_set):
+def run_lidar(name, time_set, image_path, label_path, class_set, second_per_frame):
     '''Main function'''
     global img
     global PORT_NAME
@@ -29,7 +29,7 @@ def run_lidar(name, time_set, image_path, label_path, class_set):
             time_now = time.time()
             if time_now-time_start > time_set :
                 break
-            elif time_now-time_start_click > 0.4 :
+            elif time_now-time_start_click > second_per_frame :
                 time_start_click = time.time()
                 name += 1
                 outfile = open(os.path.join(label_path,str(class_set)+str('%05d' % name)+'.txt'), 'w')
@@ -76,9 +76,12 @@ def count_down(name, time_set):
 PORT_NAME = 'COM3'
 img = np.zeros(shape=(720,1280))
 if __name__ == '__main__':
+    #########################################
     #angle range 209 142
     path = r'C:\Users\peter_ex\Documents\test'
     class_set = 1
+    second_per_frame = 0.4
+    #########################################
     image_path = os.path.join(path,'image')
     label_path = os.path.join(path,'label')
     if not os.path.isdir(image_path):
@@ -88,7 +91,7 @@ if __name__ == '__main__':
     time_set = input('要錄製幾分鐘:')
     image_th = threading.Thread(target=run_cam, args = ('camera', float(time_set)))  #建立執行緒
     image_th.start()  #執行
-    label_th = threading.Thread(target=run_lidar, args = ('lidar', float(time_set), image_path, label_path, class_set))  #建立執行緒
+    label_th = threading.Thread(target=run_lidar, args = ('lidar', float(time_set), image_path, label_path, class_set, second_per_frame))  #建立執行緒
     label_th.start()  #執行
     time_th = threading.Thread(target=count_down, args = ('camera', float(time_set)))  #建立執行緒
     time_th.start()  #執行
