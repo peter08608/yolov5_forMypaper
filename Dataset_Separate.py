@@ -16,7 +16,7 @@ import shutil
 
 ######只須設定這裡######
 newfilename = 'detect_data_separate' #分離後資料夾名子
-mypath_img = r"./follow_whiteBG_balckTG/detect_data" #圖片及標籤所處路徑(資料夾名稱需下面更改)
+mypath_img = r"./follow_blackBG_rembgTG/detect_data" #圖片及標籤所處路徑(資料夾名稱需下面更改)
 files = listdir(mypath_img)
 mypath_img_out = mypath_img+'\\image' #輸出image資料夾(可自行改名)
 mypath_txt = mypath_img+'\\label' #輸出label資料夾(可自行改名,限txt)
