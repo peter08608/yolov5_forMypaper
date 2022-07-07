@@ -3,14 +3,13 @@ import time
 from pathlib import Path
 
 import cv2
-from PIL import Image
 import torch
 import torch.backends.cudnn as cudnn
 from numpy import random
 import numpy
 import math
 import os
-from rembg import remove
+
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -19,6 +18,7 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
 
+from crop_img import *
 
 def detect(save_img=False):
     #####################################################
@@ -109,8 +109,7 @@ def detect(save_img=False):
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
                 #####################################################
-                new_im0 = im0
-                y, x, channel = new_im0.shape
+                new_im0 = im0.copy()
                 #cv2.imshow(str(p), im0)
                 #cv2.waitKey()
                 #####################################################
@@ -129,49 +128,37 @@ def detect(save_img=False):
 
                     if save_img or view_img or True:  # Add bbox to image
                         label = f'{names[int(cls)]} {conf:.2f}'
-                        #plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         #####################################################
                         xyxy_num_0 = int(xyxy[0].cpu().numpy())#left x
                         xyxy_num_1 = int(xyxy[1].cpu().numpy())#left y
                         xyxy_num_2 = int(xyxy[2].cpu().numpy())#right x
                         xyxy_num_3 = int(xyxy[3].cpu().numpy())#right y
                         
-                        crop_img = new_im0[xyxy_num_1:xyxy_num_3,xyxy_num_0:xyxy_num_2]
-                        crop_img = remove(crop_img)
-                        crop_img = Image.fromarray(crop_img)
-                        crop_img = crop_img.convert("RGB")
-                        
-                        #cv2.imshow(str(p), crop_img)
-                        #cv2.waitKey()
-                        
-                        new_img = numpy.ones((y,x,3), numpy.uint8)
-                        new_img[xyxy_num_1:xyxy_num_3, xyxy_num_0:xyxy_num_2] = crop_img
+                        #new_img = crop_follow_blackBG(new_im0, xyxy_num_0, xyxy_num_1, xyxy_num_2, xyxy_num_3)
+                        new_img = adaptive_center_crop(new_im0, (600,600), xyxy_num_0, xyxy_num_1, xyxy_num_2, xyxy_num_3)#目標置中裁切(原始圖, 裁切大小(x,y), l_x, l_y, r_x, r_y)
                         
                         split_filename = str(p.name).split('.')
                         my_filename = split_filename[0] + '_' + str(int(cls.cpu().numpy())) + '.' + split_filename[1]
                         cv2.imwrite(os.path.join(my_path,'image',my_filename), new_img)
                         
                         #↑↑↑↑↑image↑↑↑↑↑       ↓↓↓↓↓label↓↓↓↓↓
-
-                        img_shape = new_im0.shape
-                        img_H = int(img_shape[0])#useless
-                        img_W = int(img_shape[1])
-                        target_wpoint = (67/img_W)*((xyxy_num_0+xyxy_num_2)/2)
-                        min_dis = 9999999999999999.9
-                        cache_line = []
-                        origin_label_path = r'../pokemon_muti_pattern/label'
+                        angle_top, angle_low = 209, 142 #0
+                        angle_range_setting = angle_top - angle_low #67
+                        origin_label_path = os.path.join(p.parents[1], 'label')
+                        
                         f = open(os.path.join(origin_label_path,split_filename[0]+'.txt'))
-                        for line in f.readlines():
-                            line = line.split(' ')
-                            if abs(target_wpoint - float(line[2])) < min_dis:
-                                min_dis = abs(target_wpoint - float(line[2]))
-                                cache_line = line
-                        f.close()
-                        #print(cache_line)
+                        img_shape = new_im0.shape
+                        img_H, img_W = int(img_shape[0]), int(img_shape[1])
+                        target_wpoint = ((angle_range_setting/img_W)*((xyxy_num_0+xyxy_num_2)/2)) + angle_low  #find weight by target
                         my_filename = split_filename[0] + '_' + str(int(cls.cpu().numpy())) + '.txt' 
+                        
+                        angle, dis = take_label_info_2(angle_range_setting, f, target_wpoint, my_filename)
+                        
+                        f.close()
+                        angle = float(angle)/180
+                        dis = float(dis)/1000
                         f = open(os.path.join(my_path,'label',my_filename), 'w')
-                        angle = float(cache_line[3])/180
-                        dis = float(cache_line[5])/1000
                         f.write(str(angle)+' '+str(dis))
                         f.close()
                         #####################################################
